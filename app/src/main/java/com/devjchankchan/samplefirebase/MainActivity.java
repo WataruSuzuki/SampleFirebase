@@ -15,14 +15,24 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.Toast;
 
+import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.android.gms.tasks.Task;
+import com.google.firebase.auth.*;
 import com.google.firebase.storage.*;
 import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 
 public class MainActivity extends AppCompatActivity {
+    static final String TAG = "(・∀・)";
+
+    static final String email = "youremail";
+    static final String password = "yourpassword";
+
+    private FirebaseAuth mAuth;
+    private FirebaseAuth.AuthStateListener mAuthListener;
 
     private FirebaseStorage storage;
     private StorageReference storageRef;
@@ -46,6 +56,8 @@ public class MainActivity extends AppCompatActivity {
                         .setAction("Action", null).show();
             }
         });
+
+        setupAuthentic();
     }
 
     @Override
@@ -71,10 +83,55 @@ public class MainActivity extends AppCompatActivity {
     }
 
     @Override
-    protected void onResume() {
-        super.onResume();
+    public void onStart() {
+        super.onStart();
+        mAuth.addAuthStateListener(mAuthListener);
+        signInUser();
+    }
 
-        fileDownload();
+    @Override
+    public void onStop() {
+        super.onStop();
+        if (mAuthListener != null) {
+            mAuth.removeAuthStateListener(mAuthListener);
+        }
+    }
+
+    private void setupAuthentic() {
+        mAuth = FirebaseAuth.getInstance();
+        mAuthListener = new FirebaseAuth.AuthStateListener() {
+            @Override
+            public void onAuthStateChanged(@NonNull FirebaseAuth firebaseAuth) {
+                FirebaseUser user = firebaseAuth.getCurrentUser();
+                if (user != null) {
+                    // User is signed in
+                    Log.d(TAG, "onAuthStateChanged:signed_in:" + user.getUid());
+                } else {
+                    // User is signed out
+                    Log.d(TAG, "onAuthStateChanged:signed_out");
+                }
+                // ...
+            }
+        };
+    }
+
+    private void signInUser() {
+        mAuth.signInWithEmailAndPassword(email, password)
+                .addOnCompleteListener(this, new OnCompleteListener<AuthResult>() {
+                    @Override
+                    public void onComplete(@NonNull Task<AuthResult> task) {
+                        Log.d(TAG, "signInWithEmail:onComplete:" + task.isSuccessful());
+
+                        // If sign in fails, display a message to the user. If sign in succeeds
+                        // the auth state listener will be notified and logic to handle the
+                        // signed in user can be handled in the listener.
+                        if (!task.isSuccessful()) {
+                            Log.w(TAG, "signInWithEmail:failed", task.getException());
+                        } else {
+                            fileDownload();
+                        }
+                    }
+                });
     }
 
     private void fileDownload() {
@@ -96,7 +153,7 @@ public class MainActivity extends AppCompatActivity {
         // ディレクトリ初期作成
         if (!file.exists()) {
             if (file.mkdir() == false) {
-                Log.i("lightbox", "Can't create directory");
+                Log.i(TAG, "Can't create directory");
                 return;
             }
         }
@@ -125,8 +182,8 @@ public class MainActivity extends AppCompatActivity {
                 }).addOnFailureListener(new OnFailureListener() {
             @Override
             public void onFailure(@NonNull Exception e) {
-                Log.i("lightbox","Fail to download");
-                Log.i("lightbox",e.getMessage());
+                Log.i(TAG,"Fail to download");
+                Log.i(TAG,e.getMessage());
                 progress.dismiss();
                 Toast.makeText(MainActivity.this,"Fail to download",Toast.LENGTH_LONG).show();
             }
